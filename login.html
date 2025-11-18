@@ -19,6 +19,7 @@
             background: hsl(222.2, 84%, 4.9%);
             color: hsl(210, 40%, 98%);
             scroll-behavior: smooth;
+            overflow-x: hidden;
         }
         .text-edge-outline {
             -webkit-text-stroke: 1px rgba(255, 255, 255, 0.1);
@@ -31,21 +32,24 @@
         .animate-fade-in {
             animation: fade-in 0.5s ease-in;
         }
-        .particle {
-            position: absolute;
-            border-radius: 50%;
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
             pointer-events: none;
-            opacity: 0.6;
         }
     </style>
 </head>
 <body class="relative overflow-hidden">
-    <!-- Particles Background -->
-    <div id="particles" class="fixed inset-0 -z-10 animate-fade-in"></div>
+    <!-- Particles Canvas Background -->
+    <canvas id="particles-canvas" class="animate-fade-in"></canvas>
     
     <!-- Main Content -->
-    <main class="relative min-h-screen flex items-center justify-center p-4">
-        <div class="w-full max-w-md z-10">
+    <main class="relative min-h-screen flex items-center justify-center p-4 z-10">
+        <div class="w-full max-w-md">
             <!-- Login Card -->
             <div class="bg-white/5 dark:bg-neutral-950/80 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 shadow-2xl">
                 <!-- Logo/Title -->
@@ -53,11 +57,11 @@
                     <p class="text-md font-thin text-slate-500 dark:text-zinc-400 mb-2">
                         Hi, Welcome back
                     </p>
-                    <h1 class="text-6xl md:text-7xl font-thin text-transparent text-edge-outline text-left md:text-center mb-2 title-font">
+                    <h1 class="text-6xl md:text-7xl font-thin text-transparent text-edge-outline mb-2 title-font">
                         Login
                     </h1>
                     <p class="text-md font-thin text-slate-500 dark:text-zinc-400">
-                        Đăng nhập vào tài khoản của bạn
+                        Đăng nhập vào hệ thống Student Tools
                     </p>
                 </div>
 
@@ -65,19 +69,19 @@
                 <div id="message" class="mb-4 hidden p-3 rounded-lg text-sm"></div>
 
                 <!-- Login Form -->
-                <form id="loginForm" class="space-y-6">
+                <form id="loginForm" class="space-y-6" action="" method="POST">
                     <div>
-                        <label for="username" class="block text-sm font-medium text-zinc-300 mb-2">
-                            Tên đăng nhập hoặc Email
+                        <label for="email" class="block text-sm font-medium text-zinc-300 mb-2">
+                            Email
                         </label>
                         <input
-                            type="text"
-                            id="username"
-                            name="username"
+                            type="email"
+                            id="email"
+                            name="email"
                             required
-                            autocomplete="username"
+                            autocomplete="email"
                             class="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                            placeholder="Nhập tên đăng nhập hoặc email"
+                            placeholder="Nhập email"
                         >
                     </div>
 
@@ -105,9 +109,6 @@
                             >
                             <span class="ml-2 text-sm text-zinc-400">Ghi nhớ đăng nhập</span>
                         </label>
-                        <a href="#" class="text-sm text-orange-400 hover:text-orange-300 transition-colors">
-                            Quên mật khẩu?
-                        </a>
                     </div>
 
                     <button
@@ -124,13 +125,13 @@
                     </button>
                 </form>
 
-                <!-- Footer -->
+                <!-- Info -->
                 <div class="mt-6 text-center">
-                    <p class="text-sm text-zinc-500">
-                        Chưa có tài khoản? 
-                        <a href="register.html" class="text-orange-400 hover:text-orange-300 transition-colors">
-                            Đăng ký ngay
-                        </a>
+                    <p class="text-sm text-zinc-500 mb-2">
+                        Hệ thống Student Tools với PHP backend
+                    </p>
+                    <p class="text-xs text-zinc-600">
+                        Default: student@example.com / 123456
                     </p>
                 </div>
             </div>
@@ -148,69 +149,145 @@
     </main>
 
     <script>
+        // Configuration: Đặt URL của hệ thống PHP ở đây
+        // Thay đổi URL này thành địa chỉ thực tế của hệ thống PHP của bạn
+        const PHP_LOGIN_URL = 'https://cavoixanh1806.site/php-auth/public/login.php';
+        
         // Particles effect
-        function createParticles() {
-            const particlesContainer = document.getElementById('particles');
-            const particleCount = 100;
+        (function() {
+            const canvas = document.getElementById('particles-canvas');
+            if (!canvas) return;
             
-            for (let i = 0; i < particleCount; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                
-                const size = Math.random() * 3 + 1;
-                const x = Math.random() * 100;
-                const y = Math.random() * 100;
-                const duration = Math.random() * 20 + 10;
-                const delay = Math.random() * 5;
-                
-                particle.style.width = size + 'px';
-                particle.style.height = size + 'px';
-                particle.style.left = x + '%';
-                particle.style.top = y + '%';
-                particle.style.background = `rgba(255, 255, 255, ${Math.random() * 0.5 + 0.2})`;
-                particle.style.animation = `float ${duration}s ${delay}s infinite ease-in-out`;
-                
-                particlesContainer.appendChild(particle);
+            const ctx = canvas.getContext('2d');
+            let circles = [];
+            let mouse = { x: 0, y: 0 };
+            const dpr = window.devicePixelRatio || 1;
+            
+            function resizeCanvas() {
+                canvas.width = window.innerWidth * dpr;
+                canvas.height = window.innerHeight * dpr;
+                canvas.style.width = window.innerWidth + 'px';
+                canvas.style.height = window.innerHeight + 'px';
+                ctx.scale(dpr, dpr);
+                circles = [];
+                createCircles();
             }
-        }
-        
-        // Add floating animation
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes float {
-                0%, 100% { transform: translate(0, 0) rotate(0deg); }
-                33% { transform: translate(30px, -30px) rotate(120deg); }
-                66% { transform: translate(-20px, 20px) rotate(240deg); }
+            
+            function createCircles() {
+                const quantity = 30;
+                for (let i = 0; i < quantity; i++) {
+                    circles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        translateX: 0,
+                        translateY: 0,
+                        size: Math.random() * 2 + 0.5,
+                        alpha: Math.random() * 0.5 + 0.2,
+                        targetAlpha: Math.random() * 0.5 + 0.2,
+                        dx: (Math.random() - 0.5) * 0.1,
+                        dy: (Math.random() - 0.5) * 0.1,
+                        magnetism: 0.1 + Math.random() * 0.5,
+                    });
+                }
             }
-        `;
-        document.head.appendChild(style);
+            
+            function drawCircle(circle) {
+                ctx.beginPath();
+                ctx.arc(circle.x, circle.y, circle.size, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(255, 255, 255, ${circle.alpha})`;
+                ctx.fill();
+            }
+            
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+                
+                circles.forEach((circle) => {
+                    const distance = Math.sqrt(
+                        Math.pow(mouse.x - circle.x, 2) + Math.pow(mouse.y - circle.y, 2)
+                    );
+                    if (distance < 100) {
+                        const angle = Math.atan2(mouse.y - circle.y, mouse.x - circle.x);
+                        circle.translateX += Math.cos(angle) * circle.magnetism;
+                        circle.translateY += Math.sin(angle) * circle.magnetism;
+                    }
+                    
+                    circle.x += circle.translateX + circle.dx;
+                    circle.y += circle.translateY + circle.dy;
+                    circle.translateX *= 0.9;
+                    circle.translateY *= 0.9;
+                    
+                    if (circle.x < 0 || circle.x > window.innerWidth) circle.dx *= -1;
+                    if (circle.y < 0 || circle.y > window.innerHeight) circle.dy *= -1;
+                    
+                    circle.alpha += (circle.targetAlpha - circle.alpha) * 0.05;
+                    
+                    drawCircle(circle);
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            
+            window.addEventListener('mousemove', (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+            
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            animate();
+        })();
         
-        // Initialize particles
-        createParticles();
-        
-        // Form handling
+        // Form handling - Redirect to PHP system
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const messageDiv = document.getElementById('message');
             
-            // Simple validation
-            if (!username || !password) {
+            if (!email || !password) {
                 showMessage('Vui lòng điền đầy đủ thông tin!', 'error');
                 return;
             }
             
-            // Here you can add your login logic
-            // For now, just show a success message
-            showMessage('Đăng nhập thành công! (Demo mode)', 'success');
+            // Option 1: Redirect to PHP login page (form sẽ submit ở đó)
+            // Uncomment dòng này nếu muốn redirect:
+            // window.location.href = PHP_LOGIN_URL + '?email=' + encodeURIComponent(email);
             
-            // Redirect after 1 second (replace with actual login logic)
-            setTimeout(() => {
-                // window.location.href = '/dashboard.html';
-                console.log('Login:', { username, password });
-            }, 1000);
+            // Option 2: Submit form trực tiếp đến PHP (cần CORS hoặc cùng domain)
+            // Tạo form ẩn và submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = PHP_LOGIN_URL;
+            form.style.display = 'none';
+            
+            const emailInput = document.createElement('input');
+            emailInput.type = 'hidden';
+            emailInput.name = 'email';
+            emailInput.value = email;
+            form.appendChild(emailInput);
+            
+            const passwordInput = document.createElement('input');
+            passwordInput.type = 'hidden';
+            passwordInput.name = 'password';
+            passwordInput.value = password;
+            form.appendChild(passwordInput);
+            
+            document.body.appendChild(form);
+            
+            // Nếu PHP_LOGIN_URL là URL khác domain, cần dùng fetch với CORS
+            // Hoặc đơn giản là redirect đến PHP login page
+            if (PHP_LOGIN_URL.includes('http://') || PHP_LOGIN_URL.includes('https://')) {
+                // Cross-domain: redirect với email trong URL (không an toàn cho password)
+                // Tốt nhất là redirect đến PHP login page và user nhập lại
+                showMessage('Đang chuyển đến hệ thống đăng nhập...', 'success');
+                setTimeout(() => {
+                    window.location.href = PHP_LOGIN_URL;
+                }, 500);
+            } else {
+                // Same domain: submit form trực tiếp
+                form.submit();
+            }
         });
         
         function showMessage(text, type) {
@@ -225,6 +302,15 @@
             setTimeout(() => {
                 messageDiv.classList.add('hidden');
             }, 5000);
+        }
+        
+        // Check if PHP_LOGIN_URL is configured
+        if (PHP_LOGIN_URL === 'https://your-php-domain.com/php-auth/public/login.php') {
+            console.warn('⚠️ Vui lòng cấu hình PHP_LOGIN_URL trong file login.html!');
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('⚠️ Vui lòng cấu hình URL hệ thống PHP trong file login.html!\n\nMở file public/login.html và sửa biến PHP_LOGIN_URL.');
+            });
         }
     </script>
 </body>
